@@ -1,0 +1,6 @@
+Aug 11 2022 11:24:59 
+ch12_where_next_metal_parallel.png
+너비: 1200
+높이: 800
+num샘플링: 10
+걸린시간(sec): 35.4987
