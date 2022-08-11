@@ -18,6 +18,12 @@ public:
 	}
 
 	bool hit(const ray& r, float t_min, float t_max, hit_record& rec) const; //override
+
+	~sphere()
+	{
+		if (mat_ptr != nullptr)
+			delete mat_ptr;
+	}
 };
 
 bool::sphere::hit(const ray& r, float t_min, float t_max, hit_record& rec) const

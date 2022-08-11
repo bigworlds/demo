@@ -15,6 +15,8 @@ public:
 		list_size = n;
 	}
 	bool hit(const ray& r, float t_min, float t_max, hit_record& rec) const; //override
+
+	~hitable_list();
 };
 
 bool hitable_list::hit(const ray& r, float t_min, float t_max, hit_record& rec) const
@@ -32,4 +34,14 @@ bool hitable_list::hit(const ray& r, float t_min, float t_max, hit_record& rec) 
 		}
 	}
 	return hit_anything;
+}
+
+hitable_list::~hitable_list()
+{
+	for (int i = 0; i < list_size; ++i)
+	{
+		delete list[i];
+	}
+
+	delete[] list;
 }

@@ -121,8 +121,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="camera.h" />
+    <ClInclude Include="Fiber.h" />
     <ClInclude Include="hitable.h" />
     <ClInclude Include="hitableList.h" />
+    <ClInclude Include="mmgr.h" />
     <ClInclude Include="nommgr.h" />
     <ClInclude Include="ray.h" />
     <ClInclude Include="sphere.h" />
@@ -133,6 +135,11 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="mmgr.cpp" />
     <ClCompile Include="timer.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="fiber_asm_amd64_win64.asm">
+      <FileType>Document</FileType>
+    </MASM>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -14,7 +14,7 @@
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
     <Filter Include="Utils">
-      <UniqueIdentifier>{cc6876c3-5664-4708-9266-28af47931b86}</UniqueIdentifier>
+      <UniqueIdentifier>{ec8aba05-76c5-46a8-94b7-49745800720a}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -36,10 +36,16 @@
     <ClInclude Include="sphere.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="nommgr.h">
+    <ClInclude Include="Fiber.h">
       <Filter>Utils</Filter>
     </ClInclude>
     <ClInclude Include="utils.h">
+      <Filter>Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="mmgr.h">
+      <Filter>Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="nommgr.h">
       <Filter>Utils</Filter>
     </ClInclude>
   </ItemGroup>
@@ -53,5 +59,10 @@
     <ClCompile Include="mmgr.cpp">
       <Filter>Utils</Filter>
     </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="fiber_asm_amd64_win64.asm">
+      <Filter>Utils</Filter>
+    </MASM>
   </ItemGroup>
 </Project>

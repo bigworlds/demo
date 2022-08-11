@@ -37,7 +37,7 @@ double Timer::GetElapsedTime()
 	uint64_t ticks = GetTickCount(); //tick 이 바뀔수도?
 	if( ticks < m_tickAtStart)
 	{
-		ticks = m_tickAtStart;
+		ticks = m_tickAtStart; //오버라이드.. dr.mann
 	}
 
 	return TicksToSecond(m_isRunning? ticks - m_tickAtStart : m_accumulatedTicks);

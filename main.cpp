@@ -1,10 +1,11 @@
+
 #include <iostream>
 #include <fstream>
-#include <stdio.h> //__DATE__
 #include <float.h>
+#include <stdio.h> //__DATE__
+#include "utils.h"
 
 //#include "ray.h"
-#include "utils.h"
 #include "camera.h"
 #include "sphere.h"
 #include "hitableList.h"
@@ -14,13 +15,14 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-
 using namespace std;
 using namespace glm;
 
 #define WIDTH 1200
 #define HEIGHT 800
 #define NUM_CHANNEL 3 //RGB
+//#define SINGLE_THREAD
+#define PARALLEL
 
 class material
 {
@@ -231,6 +233,127 @@ hitable* random_scene()
 	return new hitable_list(list, i);
 }
 
+struct JobItems
+{
+	//boundary
+	int widthLow;
+	int widthHigh;
+	int heightLow;
+	int heightHigh;
+
+	camera* pCam;
+	hitable* pWorld;
+	uint8_t* pOutput;
+};
+
+void g_jobRayTrace(void* p)
+{
+	FiberArgs* param = (FiberArgs*)p;
+	JobItems* userdata = (JobItems*)param->pUserdata;
+	//JobSystem2* scheduler = userdata->scheduler;
+
+
+	int widthFrom = userdata->widthLow;
+	int widthTo = userdata->widthHigh;
+	int heightFrom = userdata->heightLow;
+	int heightTo = userdata->heightHigh;
+	int nS = 10;
+	int nChannel = 3;
+	uint8_t* outputBuffer = userdata->pOutput;
+	camera* cam = userdata->pCam;
+	hitable* world = userdata->pWorld;
+
+	for (int h = heightFrom; h<heightTo; h++)
+	{
+		for (int w = widthFrom; w<widthTo; w++)
+		{
+			glm::vec3 col(0, 0, 0);
+			for (int s = 0; s<nS; s++)
+			{
+				float rand_u = static_cast<double>(rand()) / RAND_MAX;
+				float rand_v = static_cast<double>(rand()) / RAND_MAX;
+				float u = float(w + rand_u) / float(WIDTH);
+				float v = 1 - (float(h + rand_v) / float(HEIGHT));
+				ray r = cam->get_ray(u, v);
+
+				//fire
+				col += color(r, world, 0);
+			}
+
+			col /= float(nS); //average
+			col = glm::vec3(sqrt(col[0]), sqrt(col[1]), sqrt(col[2])); //gamma corrected
+
+			int ir = int(255.99*col[0]);//256
+			int ig = int(255.99*col[1]);
+			int ib = int(255.99*col[2]);
+
+			outputBuffer[(h * widthTo * nChannel) + (w * nChannel + 0)] = ir;
+			outputBuffer[(h * widthTo * nChannel) + (w * nChannel + 1)] = ig;
+			outputBuffer[(h * widthTo * nChannel) + (w * nChannel + 2)] = ib;
+		}
+	}
+
+}
+
+struct TaskParam
+{
+	int width;
+	int height;
+	hitable* world;
+	camera* cam;
+	uint8_t* outputBuffer;
+
+	JobSystem2* scheduler;
+};
+
+void taskJob(void* args)
+{
+	printf("\n=============task job start============\n");
+	//여러 시스템에 따라 다른 태스크함수를 사용할것임
+	//태스크는 카운터를 기다리는 특별한 job이라고 생각하면됨
+	//runJobs()/waitforcounter()
+
+	FiberArgs* param = (FiberArgs*)args;
+	TaskParam* task = (TaskParam*)param->pUserdata;
+
+	//jobify해야하는데
+	JobItems items[2];
+	items[0].widthLow = 0;
+	items[0].widthHigh = task->width;
+	items[0].heightLow = 0;
+	items[0].heightHigh = task->height / 2;
+	items[0].pCam = task->cam;
+	items[0].pWorld = task->world;
+	items[0].pOutput = task->outputBuffer;
+
+	items[1].widthLow = 0;
+	items[1].widthHigh = task->width;
+	items[1].heightLow = task->height / 2;
+	items[1].heightHigh = task->height;
+	items[1].pCam = task->cam;
+	items[1].pWorld = task->world;
+	items[1].pOutput = task->outputBuffer;
+
+	JobDeclaration2 tileDecl[2];
+	tileDecl[0].callback = g_jobRayTrace;
+	tileDecl[0].pUserdata = &items[0];
+	tileDecl[1].callback = g_jobRayTrace;
+	tileDecl[1].pUserdata = &items[1];
+
+
+	atomic_uint* counters = new atomic_uint();
+
+	//스캐터
+	task->scheduler->RunJobs(tileDecl, 2, &counters);
+
+	task->scheduler->WaitForCounter(&counters, 0, param->self);
+
+	//delete things?
+	delete counters;
+
+	printf("\n=============task job end============\n");
+}
+
 int main()
 {
 	int width = WIDTH;
@@ -268,6 +391,7 @@ int main()
 	double elapsedTime = 0;
 	timer.Restart();
 
+#ifdef SINGLE_THREAD
 	for (int h = 0; h<height; h++)
 	{
 		for (int w = 0; w<width; w++)
@@ -297,12 +421,45 @@ int main()
 			outputBuffer[(h * width * NUM_CHANNEL) + (w * NUM_CHANNEL + 2)] = ib;
 		}
 	}
+#endif
+
+#ifdef PARALLEL
+	int numWorkerThread = 3;
+	int numFiberMag = 32;
+	int numJobQ = 32;
+	JobSystem2 jobSystem;
+	jobSystem.Init(numWorkerThread, numFiberMag, numJobQ);
+
+	TaskParam taskData = {};
+	taskData.scheduler = &jobSystem;
+	taskData.world = world;
+	taskData.cam = &cam;
+	taskData.width = width;
+	taskData.height = height;
+	taskData.outputBuffer = outputBuffer;
+
+	atomic_uint* taskCounter = new atomic_uint();
+	atomic_fetch_add(taskCounter, 1);
+	jobSystem.RunTask(taskJob, &taskData, taskCounter);
+
+	jobSystem.WaitForTask(taskCounter, 0);
+
+	uint32_t res = 0;
+	res = atomic_load(taskCounter);
+	assert(res == 0);
+	delete taskCounter;
+	jobSystem.Endofstory();
+#endif
 
 	elapsedTime = timer.GetElapsedTime();
 
 	char* filename = "ch12_where_next_metal_parallel.png";
 	stbi_write_png(filename, width, height, NUM_CHANNEL, outputBuffer, width * NUM_CHANNEL);
 
+	//20220811 
+	//메모리 leak 없도록 수정
+	//원저자가 빼먹은 소멸자를 이용했음
+	delete world;
 	delete[] outputBuffer;
 
 	char header[50];
